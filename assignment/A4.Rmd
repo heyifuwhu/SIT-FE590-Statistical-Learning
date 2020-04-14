@@ -1,0 +1,65 @@
+---
+output: pdf_document
+---
+
+# FE590.  Assignment #4.
+
+
+## Enter Your Name Here, or "Anonymous" if you want to remain anonymous..
+## `r format(Sys.time(), "%Y-%m-%d")`
+
+
+# Instructions
+
+
+When you have completed the assignment, knit the document into a PDF file, and upload _both_ the .pdf and .Rmd files to Canvas.
+
+Note that you must have LaTeX installed in order to knit the equations below.  If you do not have it installed, simply delete the questions below.
+```{r}
+CWID = -1 #Place here your Campus wide ID number, this will personalize
+#your results, but still maintain the reproduceable nature of using seeds.
+#If you ever need to reset the seed in this assignment, use this as your seed
+#Papers that use -1 as this CWID variable will earn 0's so make sure you change
+#this value before you submit your work.
+personal = CWID %% 10000
+set.seed(personal)
+```
+# Question 1:
+In this assignment, you will be required to find a set of data to run regression on.  This data set should be financial in nature, and of a type that will work with the models we have discussed this semester (hint: we didn't look at time series)  You may not use any of the data sets in the ISLR package that we have been looking at all semester.  Your data set that you choose should have both qualitative and quantitative variables. (or has variables that you can transform)
+
+Provide a description of the data below, where you obtained it, what the variable names are and what it is describing.
+
+# Question 2:
+Pick a quantitative variable and fit at least four different models in order to predict that variable using the other predictors.  Determine which of the models is the best fit.  You will need to provide strong reasons as to why the particular model you chose is the best one.  You will need to confirm the model you have selected provides the best fit and that you have obtained the best version of that particular model (i.e. subset selection or validation for example).  You need to convince the grader that you have chosen the best model.
+```{r}
+
+```
+#Question 3:
+
+Do the same approach as in question 2, but this time for a qualitative variable.
+```{r}
+
+```
+#Question 4:
+
+(Based on ISLR Chapter 9 #7) In this problem, you will use support vector approaches in order to
+predict whether a given car gets high or low gas mileage based on the
+Auto
+data set.
+
+##(a)
+Create a binary variable that takes on a 1 for cars with gas mileage above the median, and a 0 for cars with gas mileage below the median.
+
+##(b)
+Fit a support vector classifier to the data with various values of cost, in order to predict whether a car gets high or low gas mileage. Report the cross-validation errors associated with different values of this parameter. Comment on your results.
+
+##(c)
+Now repeat for (b), this time using SVMs with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+
+##(d)
+Make some plots to back up your assertions in (b) and (c). Hint: In the lab, we used the plot() function for svm objects only in cases with p=2 When p>2,you can use the plot() function to create plots displaying pairs of variables at a time. Essentially, instead of typing plot(svmfit , dat) where svmfit contains your fitted model and dat is a data frame containing your data, you can type plot(svmfit , dat, x1~x4) in order to plot just the first and fourth variables. However, you must replace x1 and x4 with the correct variable names. To find out more, type ?plot.svm.
+
+```{r}
+
+```
+

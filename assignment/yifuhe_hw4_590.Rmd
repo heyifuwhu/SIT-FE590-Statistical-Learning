@@ -1,0 +1,358 @@
+---
+output:
+  word_document: default
+  pdf_document: default
+---
+
+# FE590.  Assignment #4.
+
+
+## Yifu He
+## `r format(Sys.time(), "%Y-%m-%d")`
+
+
+# Instructions
+
+
+When you have completed the assignment, knit the document into a PDF file, and upload _both_ the .pdf and .Rmd files to Canvas.
+
+Note that you must have LaTeX installed in order to knit the equations below.  If you do not have it installed, simply delete the questions below.
+```{r}
+library(knitr)
+library(stringi)
+library(devtools)
+
+
+CWID = 10442277 #Place here your Campus wide ID number, this will personalize
+#your results, but still maintain the reproduceable nature of using seeds.
+#If you ever need to reset the seed in this assignment, use this as your seed
+#Papers that use -1 as this CWID variable will earn 0's so make sure you change
+#this value before you submit your work.
+personal = CWID %% 10000
+set.seed(personal)
+
+```
+# Question 1:
+In this assignment, you will be required to find a set of data to run regression on.  This data set should be financial in nature, and of a type that will work with the models we have discussed this semester (hint: we didn't look at time series)  You may not use any of the data sets in the ISLR package that we have been looking at all semester.  Your data set that you choose should have both qualitative and quantitative variables. (or has variables that you can transform)Provide a description of the data below, where you obtained it, what the variable names are and what it is describing.
+
+##Answer1 :
+
+(i) Description of Data : The data is based on the  daily historical bitcoin market prices and other factors related to it from 23th Feb 2010 to 20th Feb 2018. This data set was obtained from www.kaggle.com. The dataset includes 24 predictors and 2899 entries. 
+
+
+```{r}
+set.seed(personal)
+setwd("/Users/yifuhe/Desktop")
+data1 = read.csv("bitcoin_dataset.csv")
+data = na.omit(data1)
+nr = nrow(data)
+nc = ncol(data)
+print(paste0("The number of rows  in the data set are ", nrow(data)))
+print(paste0("The number of columns  in the data set are ", ncol(data)))
+head(data)
+data$Date = as.Date(data$Date)
+head(data) # after cleaning date column
+```
+(ii) Aim for the project : TO PREDICT BITCOIN MARKET PRICES FROM THE PREDICTORS GIVEN BELOW. ALSO TO FIND WHICH OF THE PREDICTORS ARE CORRELATED TO MARKET PRICES..
+
+(iii)  Response Variable is btc_market_price
+This dataset has the following features.
+
+Date : Date of observation
+btc_market_price : Average USD market price across major bitcoin exchanges.
+btc_total_bitcoins : The total number of bitcoins that have already been mined.
+btc_market_cap : The total USD value of bitcoin supply in circulation.
+btc_trade_volume : The total USD value of trading volume on major bitcoin exchanges.
+btc_blocks_size : The total size of all block headers and transactions.
+btc_avg_block_size : The average block size in MB.
+btc_n_orphaned_blocks : The total number of blocks mined but ultimately not attached to the main Bitcoin blockchain.
+btc_n_transactions_per_block : The average number of transactions per block.
+btc_median_confirmation_time : The median time for a transaction to be accepted into a mined block.
+btc_hash_rate : The estimated number of tera hashes per second the Bitcoin network is performing.
+btc_difficulty : A relative measure of how difficult it is to find a new block.
+btc_miners_revenue : Total value of coinbase block rewards and transaction fees paid to miners.
+btc_transaction_fees : The total value of all transaction fees paid to miners.
+btc_cost_per_transaction_percent : miners revenue as percentage of the transaction volume.
+btc_cost_per_transaction : miners revenue divided by the number of transactions.
+btc_n_unique_addresses : The total number of unique addresses used on the Bitcoin blockchain.
+btc_n_transactions : The number of daily confirmed Bitcoin transactions.
+btc_n_transactions_total : Total number of transactions.
+btc_n_transactions_excluding_popular : The total number of Bitcoin transactions, excluding the 100 most popular addresses.
+btc_n_transactions_excluding_chains_longer_than_100 : The total number of Bitcoin transactions per day excluding long transaction chains.
+btc_output_volume : The total value of all transaction outputs per day.
+btc_estimated_transaction_volume : The total estimated value of transactions on the Bitcoin blockchain.
+btc_estimated_transaction_volume_usd : The estimated transaction value in USD value.
+
+```{r}
+# Looking at the data....
+set.seed(personal)
+summary(data)
+```
+
+```{r}
+#Analysing the given data set:---
+set.seed(personal)
+plot(data$Date, data$btc_market_price, xlab = "Date", ylab = "Bitcoin_Market_Price (USD)", col = "red")
+#training and testing data
+t_ind = sample(1:nr, 0.75 * nr, replace = F)
+train = data[t_ind,]
+test = data[-t_ind,]
+cor(train[, -c(1,24)])[1,]
+library(corrplot)
+corrplot(cor(data[,2:12]), method = "circle")
+```
+
+(iv) After analysing the data before selecting the best predictors, some of the conclusions made are :---
+ - Bitcoin market prices increases exponentially wrt date but falls in between 2016 and 2018 drastically.
+ - From the above correlation diagram and the values calculated, predictors which seem to be correlated to the market price are :
+   btc_market_cap, btc_trade_volume, btc_hash_rate, btc_miners_revenue,btc_difficulty, btc_cost_per_transaction
+
+#-------------------------------------------------------------------------------------------------------------------
+
+## Question 2:
+Pick a quantitative variable and fit at least four different models in order to predict that variable using the other predictors.  Determine which of the models is the best fit.  You will need to provide strong reasons as to why the particular model you chose is the best one.  You will need to confirm the model you have selected provides the best fit and that you have obtained the best version of that particular model (i.e. subset selection or validation for example).  You need to convince the grader that you have chosen the best model.
+
+
+##Answer 2 :
+
+ (MOdel 1) SIMPLE LINEAR REGRESSION : Since this is a simple regression model .. let us select the best predictor instead of applying to all the predictors. Also after finding  correlation, let us see what are the results after the best subset selection, forward subset selection and backward subset selection.
+
+```{r}
+set.seed(personal)
+library(leaps)
+p = regsubsets(btc_market_price ~ btc_market_cap + btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train)
+q = regsubsets(btc_market_price ~ btc_market_cap + btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train, method = "forward")
+r = regsubsets(btc_market_price ~ btc_market_cap + btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train, method = "backward")
+summary(p)[7]
+summary(q)[7]
+summary(r)[7]
+```
+After seeing the best, forward and the backward subset selection, the btc_market_cap i.e the total USD of bitcoin in circulation is the best predictor. So applying simple linear regression using this predictor.
+```{r}
+set.seed(personal)
+model1 = lm(btc_market_price ~ btc_market_cap, data = train)
+model11 = lm(btc_market_price ~ btc_cost_per_transaction, data = train)
+summary(model1)
+summary(model11)
+```
+We can see how strongly btc_market_cap affects the btc_market price as adj R^2 is nearly equal to 1. Also the second best predictor btc_cost_per_transaction has a adjusted R-squared = 0.7012. Both are satistically significant as seen by the p-values.
+Now we test this and predict values using testing dataset.
+```{r}
+set.seed(personal)
+pred1 = predict(model1, newdata = test)
+pred11 = predict(model11, newdata = test)
+mss1 = mean((test$btc_market_price-pred1)^2)
+mss11 = mean((test$btc_market_price-pred11)^2)
+mss1
+mss11
+```
+# MSS is too high so this is not a good model. Simple Linear regression is not good to fit. So we procced to multiple regression. 
+(Model ii) Multiple Linear Regression :
+```{r}
+c1 <- summary(p)$cp
+plot(c1,type='b',xlab="No. of Predictors",ylab=expression("Mallows C"[P]), col="red")
+
+points(which.min(c1), c1[which.min(c1)], pch=20, col="red")
+
+
+```
+All the 6 predictors we selected have the minimum mallows Cp. So applying multiple regression model. But since btc_market_cap has adj R^2 = 0.996, we perform multiple linear regression with it and one multiple linear regression without it to exclude other variables as it is overshadowing others.
+
+```{r}
+model12 = lm(btc_market_price ~ btc_market_cap + btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train)
+summary(model12)
+
+model13 = lm(btc_market_price ~ btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train)
+summary(model13)
+
+```
+So after applying multiple linear regression without the btc_market_cap,the conclusion is that all the other variables too are significant.
+```{r}
+set.seed(personal)
+pred2 = predict(model12, newdata = test)
+mss2 = mean((test$btc_market_price - pred2)^2)
+mss2
+```
+Still the error is significantly high but lower than simple linear. So we proceed to splines
+
+(Model 3) :
+Polynomial regression : By the subset selections now select only and the above results drop btc_trade_volume
+
+
+```{r}
+set.seed(personal)
+fit1 = lm(btc_market_price ~ poly(btc_market_cap, 2), data = train)
+fit2 = lm(btc_market_price ~ poly(btc_market_cap, 3), data = train)
+summary(fit1)
+summary(fit2)
+
+fita = lm(btc_market_price ~ btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction + poly(btc_market_cap, 2), data = train)
+fitb = lm(btc_market_price ~ btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction + poly(btc_market_cap, 3), data = train)
+fitc = lm(btc_market_price ~ btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction + poly(btc_market_cap, 4), data = train)
+fitd = lm(btc_market_price ~ btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction + poly(btc_market_cap, 5), data = train)
+anova(fita,fitb,fitc,fitd)
+
+pred3 = predict(fit1, newdata = test)
+mss3 = mean((test$btc_market_cap - pred3)^2)
+mss3
+```
+The mse for this is higher than simple and multiple linear regression. So we discard this model.
+
+
+(Model iv)  So this time  I choose random forrest over GAM and other techniques such as splines because they all have polynomials involved and by intution I thought those would give somewhat the same result. The reason I chose the random forest dataset size is medium not large
+```{r}
+set.seed(personal)
+library(randomForest)
+?randomForest
+model4 <- randomForest(x = train[,c(4, 10, 11, 12, 15)], y = train$btc_market_price, ntree = 501)
+summary(model4)
+pred4 = predict(model4, newdata = test)
+mss4 = mean((test$btc_market_price - pred4)^2)
+mss4
+```
+SO my intution that the random forest will produce better results on test is false. Hence i Will choose multiple linear regression over the other models as it has the less test error. Also this is because of overfitting. All the models fit into the training set but do poorly on test data. This can be expected as this is a to predict future  bitcoin market prices.
+
+#Question 3:
+Do the same approach as in question 2, but this time for a qualitative variable.
+
+
+##Answer 3 : As there is no binary variable for the above dataset lets create one :------
+
+```{r}
+set.seed(personal)
+mprice = mean(data$btc_market_price)
+mprice
+market_price <- rep("Greaterthanmean", nr)
+market_price[data$btc_market_price < mprice] <- "Not_greater_than_mean"
+data$market_price <- market_price
+data$market_price <- as.factor(data$market_price)
+
+```
+(Model i) : Logistic Regression Model : 
+Now Im changing the test set and then taking the 6 predictors for which my correlation was high.
+
+```{r}
+set.seed(personal)
+t_ind2 = sample(1:nr, 0.70 * nr, replace = FALSE)
+train2 = data[t_ind2,]
+test2 = data[-t_ind2,]
+direction = test2$market_price
+glm.fit = glm(market_price ~ btc_market_cap + btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train2, family = binomial)
+prob = predict(glm.fit, test2, type = "response")
+nrtest2 = round(0.30 * nr)
+p11 = rep("Not_greater_than_mean", nrtest2)
+p11[prob > 0.5] = "Greaterthanmean"
+table(p11, direction)
+```
+No need to calculate further as Logistic Regression performed very badly on this dataset.
+
+(Model ii) LDA Model:-----
+```{r}
+library(MASS)
+set.seed(personal)
+fit33 = lda(market_price ~ btc_market_cap + btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train2)
+p2 = predict(fit33, test2)$class
+table(p2, direction)
+#Misclassification Error rate
+miscl = mean(p2 != direction)
+miscl
+```
+We see only 35 datapoints were misclassified. LDA gave a very low missclassification error.
+
+(Model iii)
+```{r}
+set.seed(personal)
+fit44 = qda(market_price ~  btc_market_cap + btc_trade_volume + btc_hash_rate + btc_miners_revenue + btc_difficulty + btc_cost_per_transaction, data = train2)
+p3 = predict(fit44, test2)$class
+table(p3, direction)
+#Misclassification Error rate
+miscl1 = mean(p3 != direction)
+miscl1
+
+```
+QDA performs better than LDA and gives an error rate of 0.0206 which is considered to be very low.
+
+(Model iv) KNN :
+
+```{r}
+set.seed(personal)
+library(class)
+trainKNN = as.matrix(data.frame(train2$btc_market_cap, train2$btc_trade_volume, train2$btc_miners_revenue, train2$btc_difficulty, train2$btc_cost_per_transaction))
+testKNN = as.matrix(data.frame(test2$btc_market_cap, test2$btc_trade_volume, test2$btc_miners_revenue, test2$btc_difficulty, test2$btc_cost_per_transaction))
+direction2 = train2$market_price
+pKNN1 = knn(trainKNN, testKNN, direction2,k=1)
+pKNN2 = knn(trainKNN, testKNN, direction2,k=3)
+pKNN3 = knn(trainKNN, testKNN, direction2,k=5)
+pKNN4 = knn(trainKNN, testKNN, direction2,k=10)
+pKNN5 = knn(trainKNN, testKNN, direction2,k=25)
+pKNN6 = knn(trainKNN, testKNN, direction2,k=67)
+
+error1 = mean(pKNN1 != direction)
+error2 = mean(pKNN2 != direction)
+error3 = mean(pKNN3 != direction)
+error4 = mean(pKNN4 != direction)
+error5 = mean(pKNN5 != direction)
+error6 = mean(pKNN6 != direction)
+error = c(error1, error2, error3, error4, error5, error6)
+plot(error, type='b', xlab="k", ylab="Error", col="red")
+points(which.min(error), error[which.min(error)], pch=20, col="black")
+error1
+```
+
+Out of all the models KNN gives the lowest missclassification error on the test set . Hence KNN will be selectedf to give the best prediction for the data and the created binary variable
+#Question 4:
+
+(Based on ISLR Chapter 9 #7) In this problem, you will use support vector approaches in order to predict whether a given car gets high or low gas mileage based on the Auto data set.
+
+##(a)
+Create a binary variable that takes on a 1 for cars with gas mileage above the median, and a 0 for cars with gas mileage below the median.
+```{r}
+set.seed(personal)
+library(ISLR)
+attach(Auto)
+#To make a binary variable use ifelse
+median_mileage = median(Auto$mpg)
+bin.var = ifelse(Auto$mpg > median_mileage, 1, 0)
+Auto$binary.mpg = as.factor(bin.var)
+```
+##(b)
+Fit a support vector classifier to the data with various values of cost, in order to predict whether a car gets high or low gas mileage. Report the cross-validation errors associated with different values of this parameter. Comment on your results.
+```{r}
+set.seed(personal)
+library(e1071)
+x = tune(svm, binary.mpg~., data = Auto, kernel = "linear", ranges = list(cost = c(0.01, 0.1, 1, 5, 10, 100)))
+summary(x)
+print("The cross-validation error is minimized for cost = 1")
+```
+##(c)
+Now repeat for (b), this time using SVMs with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+```{r}
+set.seed(personal)
+y = tune(svm, binary.mpg ~., data = Auto, kernel = "polynomial", ranges = list(cost = c(0.01, 0.1, 1, 5, 10, 100), degree = c(2, 3, 4)))
+z = tune(svm, binary.mpg ~., data = Auto, kernel = "radial", ranges = list(cost = c(0.01, 0.1, 1, 5, 10, 100), gamma = c(0.01, 0.1, 1, 5, 10, 100, 1000)))
+summary(y)
+summary(z)
+print("The lowest cross-validation error for a polynomial kernel, is obtained for a degree of 2 and a cost of 100.")
+print("The lowest cross-validation error for a radial kernel, is obtained for a gamma for 0.01 and a cost of 100.")
+
+```
+##(d)
+Make some plots to back up your assertions in (b) and (c). Hint: In the lab, we used the plot() function for svm objects only in cases with p=2 When p>2,you can use the plot() function to create plots displaying pairs of variables at a time. Essentially, instead of typing plot(svmfit , dat) where svmfit contains your fitted model and dat is a data frame containing your data, you can type plot(svmfit , dat, x1~x4) in order to plot just the first and fourth variables. However, you must replace x1 and x4 with the correct variable names. To find out more, type ?plot.svm.
+
+```{r}
+set.seed(personal)
+svm_linear = svm(binary.mpg~., data = Auto, kernel = "linear", cost = 1)
+svm_polynomial = svm(binary.mpg~., data = Auto, kernel = "polynomial", cost = 100, degree = 2) 
+svm_radial = svm(binary.mpg~., data = Auto, kernel = "radial", cost = 100, gamma = 0.01)
+
+plottings = function(fitting) {
+for (i in names(Auto)[!(names(Auto) %in% c("mpg", "binary.mpg", "name"))]) {
+        plot(fitting, Auto, as.formula(paste("mpg~", i, sep = "")))
+ }
+}
+plottings(svm_linear)
+plottings(svm_polynomial)
+plottings(svm_radial)
+
+```
+

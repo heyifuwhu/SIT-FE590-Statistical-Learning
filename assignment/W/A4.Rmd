@@ -1,0 +1,540 @@
+---
+output:
+  word_document: default
+  pdf_document: default
+---
+
+# FE590.  Assignment #4.
+
+
+## Yifu He
+## `r format(Sys.time(), "%Y-%m-%d")`
+
+
+# Instructions
+
+
+When you have completed the assignment, knit the document into a PDF file, and upload _both_ the .pdf and .Rmd files to Canvas.
+
+Note that you must have LaTeX installed in order to knit the equations below.  If you do not have it installed, simply delete the questions below.
+```{r}
+CWID = 10442277 #Place here your Campus wide ID number, this will personalize
+#your results, but still maintain the reproduceable nature of using seeds.
+#If you ever need to reset the seed in this assignment, use this as your seed
+#Papers that use -1 as this CWID variable will earn 0's so make sure you change
+#this value before you submit your work.
+personal = CWID %% 10000
+set.seed(personal)
+```
+# Question 1:
+In this assignment, you will be required to find a set of data to run regression on.  This data set should be financial in nature, and of a type that will work with the models we have discussed this semester (hint: we didn't look at time series)  You may not use any of the data sets in the ISLR package that we have been looking at all semester.  Your data set that you choose should have both qualitative and quantitative variables. (or has variables that you can transform)
+
+Provide a description of the data below, where you obtained it, what the variable names are and what it is describing.
+
+```{r}
+Data=read.csv("Data_Set.csv")
+Data=Data[,-1]
+attach(Data)
+library(leaps)
+library(gam)
+library(glmnet)
+library(randomForest)
+library(tree)
+library(boot)
+library(class)
+library(MASS)
+library(e1071)
+```
+
+The data are collected through various sources and complied by me. The soybean, corn, and oats price are obtained through macrotrends.net and validated through bloomberg.com. The weather data are obtained through the NCDC. The data set contains the monthly value of different variables representing factors that may affect the price of soybean future contract. The variables are:
+
+\begin{itemize}
+\item \textbf{Date}: The date of the value recorded
+\item \textbf{Soy}: The price of the Soybean future contract for January next year at the given date. The price is recorded at USD.
+\item \textbf{Direction}: The direction of the price compared to the previous date
+\item \textbf{OHTemp}: The monthly average temperature of the Ohio Valley region. The value is recorded in Farrenheit degree.
+\item \textbf{UpMWTemp}: The monthly average temperature of the Upper Midwest region. The value is recorded in Farrenheit degree.
+\item \textbf{SouthTemp}: The monthly average temperature of the South region. The value is recorded in Farrenheit degree.
+\item \textbf{OHRain}: The monthly average precipitation of the Ohio Valley region. The value is recorded in inch(es).
+\item \textbf{UpMWRain}: The monthly average precipitation of the Upper Midwest region. The value is recorded in inch(es).
+\item \textbf{SouthRain}: The monthly average precipitation of the South region. The value is recorded in inch(es).
+\item \textbf{Oats}: The price of the Oats future contract for January next year at the given date. The price is recorded at USD.
+\item \textbf{Corn}: The price of the Corn future contract for January next year at the given date. The price is recorded at USD.
+\item \textbf{USD}: The US Dollar index of the given month
+\end{itemize}
+
+# Question 2:
+Pick a quantitative variable and fit at least four different models in order to predict that variable using the other predictors.  Determine which of the models is the best fit.  You will need to provide strong reasons as to why the particular model you chose is the best one.  You will need to confirm the model you have selected provides the best fit and that you have obtained the best version of that particular model (i.e. subset selection or validation for example).  You need to convince the grader that you have chosen the best model.
+
+##Solution
+
+The six chosen models for the testing of the data would be: Linear Regression, Polynomial Linear regression, Lasso, GAMs with Polynomial, GAMs with Natural Spline, and Tree method.
+
+The confidence level used in this test is $\alpha=0.05$.
+
+The validation method used will be validation set.
+
+```{r}
+set.seed(personal)
+quant=Data[,-2]
+n=length(Soy)
+sampling=sample(n,n/2)
+quant.train=quant[sampling,]
+quant.test=quant[-sampling,]
+```
+
+
+###Linear Regression
+
+First off, I use regsubset to determine the best possible combination of parameters based on these 9 variables.
+\newline
+
+```{r}
+reg.fit=regsubsets(Soy~.,data=quant.train,nvmax=9)
+result=data.frame(rank(summary(reg.fit)$cp),
+                  rank(summary(reg.fit)$bic),
+                  rank(-summary(reg.fit)$adjr))
+colnames(result)=c("Mallow's Cp", "BIC","Adj R^2")
+result
+```
+
+With the result in hands, we can see that the model with 5 parameters are the best choice with overall good result in the three criteria. The five chosen parameters are:
+
+```{r}
+coefmodel=coef(reg.fit,id=5)
+names(coefmodel)
+```
+
+
+```{r}
+lm.fit=lm(Soy~UpMWTemp+SouthRain+Corn+Oats+USD,data=quant.train)
+summary(lm.fit)
+```
+
+
+Looking at the summary, I remove the UpMWTemp as it is not statistically significant
+```{r}
+lm.fit=lm(Soy~SouthRain+Corn+Oats+USD,data=quant.train)
+summary(lm.fit)
+```
+The new linear regression shows great promising as all of the variable is statistically significance with $\alpha=5\%$.
+
+Then, we put calculate the testing and the training MSE for the regression:
+\newline
+
+```{r}
+lm.pred=predict(lm.fit,quant.train)
+mean((Soy-lm.pred)^2)
+lm.pred=predict(lm.fit,quant.test)
+mean((Soy-lm.pred)^2)
+```
+
+With the above result, we can see that the model actually improve in testing data set with the MSE reduce to 10.7786.
+
+###Polynomial Regression
+
+I apply the same method from the Linear Regression into the Polynomial Regression. First, I would use the exhaustive method to find the best combination
+```{r}
+reg.fit=regsubsets(Soy~poly(OHRain,4)
+                +poly(OHTemp,4)
+                +poly(UpMWRain,4)
+                +poly(UpMWTemp,4)
+                +poly(SouthRain,4)
+                +poly(SouthTemp,4)
+                +poly(Corn,4)
+                +poly(Oats,4)
+                +poly(USD,4),
+            data = quant.train,nvmax=36)
+result=data.frame(rank(summary(reg.fit)$cp),
+                  rank(summary(reg.fit)$bic),
+                  rank(-summary(reg.fit)$adjr))
+colnames(result)=c("Mallow's Cp", "BIC","Adj R^2")
+result
+```
+
+The best method to choose is the 12-parameters one.
+
+```{r}
+coefmodel=coef(reg.fit,id=12)
+names(coefmodel)
+```
+
+```{r}
+poly.fit=lm(Soy~I(OHRain)^3
+                +OHTemp
+                +I(UpMWRain)^3
+                +UpMWTemp
+                +SouthRain
+                +I(SouthRain)^3
+                +I(SouthTemp)^2
+                +poly(Corn,2)
+                +poly(Oats,2)
+                +USD,
+                data=quant.train)
+summary(poly.fit)
+```
+
+With this result, I only pick Corn and Oats with the degree to 2 and USD for the polynomial model
+
+```{r}
+poly.fit=lm(Soy~poly(Corn,2)+poly(Oats,2)+USD,data=quant.train)
+summary(poly.fit)
+```
+
+And then to the cross-validation test:
+
+```{r}
+poly.pred=predict(poly.fit,quant.train)
+mean((Soy-poly.pred)^2)
+poly.pred=predict(poly.fit,quant.test)
+mean((Soy-poly.pred)^2)
+```
+
+The polynomial model comes with a good improvement through the testing phase with the testing MSE of 10.5840
+
+###Lasso
+
+First off, I build a grid of different lambda to choose which lambda yield the smallest cross-validation error.
+
+```{r}
+x=model.matrix(Soy~.,quant.train)[,-1]
+y=quant.train$Soy
+grid=10^seq(10,-2,length=100)
+lasso.fit=glmnet(x,y,alpha = 1,lambda = grid)
+cv.lasso=cv.glmnet(x,y,alpha=1)
+bestlasso=cv.lasso$lambda.min
+bestlasso
+```
+
+The answer is the lasso with $\lambda=0.01775847$.
+
+Apply this $\lambda$ into the lasso model and calculate the testing MSE
+
+```{r}
+lasso.fit.b=glmnet(x,y,alpha=1,lambda = bestlasso)
+coef(lasso.fit.b)
+x.test=model.matrix(Soy~.,quant.test)[,-1]
+lasso.pred=predict(lasso.fit,s=bestlasso,x.test)
+mean((quant.test$Soy-lasso.pred)^2)
+```
+The testing MSE is extraordinary good compared to the usual Linear Regression method.
+
+###GAM w/ polynomial
+
+```{r}
+rank=c(1:15)
+aic=rep(0,15)
+for (i in rank){
+gamp.fit=gam(Soy~poly(OHRain,i)
+                +poly(OHTemp,i)
+                +poly(UpMWRain,i)
+                +poly(UpMWTemp,i)
+                +poly(SouthRain,i)
+                +poly(SouthTemp,i)
+                +poly(Corn,i)
+                +poly(Oats,i)
+                +poly(USD,i),
+            data = quant.train)
+aic[i]=gamp.fit$aic}
+aic
+```
+
+Based on the AIC ranking, it is the best to choose the 12th degree model
+
+```{r}
+gamp.fit=gam(Soy~poly(OHRain,12)
+                +poly(OHTemp,12)
+                +poly(UpMWRain,12)
+                +poly(UpMWTemp,12)
+                +poly(SouthRain,12)
+                +poly(SouthTemp,12)
+                +poly(Corn,12)
+                +poly(Oats,12)
+                +poly(USD,12),
+            data = quant.train)
+summary(gamp.fit)
+```
+
+```{r}
+gamp.pred=predict(gamp.fit,quant.train)
+mean((Soy-gamp.pred)^2)
+gamp.pred=predict(gamp.fit,quant.test)
+mean((Soy-gamp.pred)^2)
+```
+
+With the result of the testing MSE, it is the best that I should not build the model in the first place.
+
+
+###GAM w/ natural splines
+
+```{r}
+gam.fit=gam(Soy~s(OHRain,6)
+                +s(OHTemp,6)
+                +s(UpMWRain,6)
+                +s(UpMWTemp,6)
+                +s(SouthRain,6)
+                +s(SouthTemp,6)
+                +s(Corn,6)
+                +s(Oats,6)
+                +s(USD,6),
+            data = quant.train)
+summary(gam.fit)
+```
+
+With the result, we see that under the confidence level of 5%, we pick 6 parameters: OHTemp, SouthRain, SouthTemp, Corn, Oats, and USD for our final model
+
+```{r}
+gam.fit=gam(Soy~s(OHTemp,6)
+                +s(SouthRain,6)
+                +s(SouthTemp,6)
+                +s(Corn,6)
+                +s(Oats,6)
+                +s(USD,6),
+            data = quant.train)
+summary(gam.fit)
+```
+
+The new model has all of its parameters statistically significant under the 5% confidence level. 
+Next step, we put the new GAM model to the cross-validation test:
+
+```{r}
+gam.pred=predict(gam.fit,quant.train)
+mean((Soy-gam.pred)^2)
+gam.pred=predict(gam.fit,quant.test)
+mean((Soy-gam.pred)^2)
+```
+
+The GAM model is also improving with the new test data set and even has lower testing MSE of 10.7442
+
+###Tree Model
+
+Finally, we use the tree model to derive the relationship between Soy price and other parameters.
+
+```{r}
+tree.fit=tree(Soy~.,data=quant.train)
+tree.fit
+summary(tree.fit)
+```
+
+With the tree model, we can see that the model only makes use of the two parameters: Oats and Corn. Thus I decided not to trim it any further down as the trimmed model may lose its flexibility.
+
+The tree model is put into testing:
+
+```{r}
+tree.pred=predict(tree.fit,quant.train)
+mean((Soy-tree.pred)^2)
+tree.pred=predict(tree.fit,quant.test)
+mean((Soy-tree.pred)^2)
+```
+
+Tree method also improves when put under the testing data set with the testing MSE of 10.7890
+
+###Result
+
+As the result, when comparing both the training and testing MSE and the parameters used, I come to the conclusion that the Lasso model help to build the lowest testing MSE with great result compared to the other without making the intepretability obscured.
+
+#Question 3:
+
+Do the same approach as in question 2, but this time for a qualitative variable.
+
+##Solution
+
+The four chosen models for this question would be: LDA, QDA, KNN, and Support Vector Machine. The dependent variable would be Direction, the change in direction of the Soybean price
+
+The confidence level used and the method of selection is the same as of the one for quantitative variable
+
+```{r}
+qual=Data[,-1]
+qual.train=qual[sampling,]
+qual.test=qual[-sampling,]
+```
+
+###LDA
+```{r}
+lda.fit=lda(Direction~.,data=qual.train)
+lda.fit
+```
+
+The data is fitted into the LDA model and the model then is put into testing with the testing data set:
+
+```{r}
+lda.preds=predict(lda.fit,qual.test)
+mean(lda.preds$class==qual.test$Direction)
+```
+
+The LDA model yields good result with 88% correct prediction rate.
+
+###QDA
+```{r}
+qda.fit=qda(Direction~.,data=qual.train)
+qda.fit
+```
+
+The data is fitted into the QDA model and the model then is put into testing with the testing data set:
+
+```{r}
+qda.preds=predict(qda.fit,qual.test)
+mean(qda.preds$class==qual.test$Direction)
+```
+
+The QDA model yields decent result with 78.9091% correct prediction rate.
+
+###KNN
+
+I put the testing and training data sets into the KNN models with the range of $k=\{1,2,3,4,5,6,7,8,9,10\}$
+
+```{r}
+knn.test=qual.test[,-1]
+knn.train=qual.train[,-1]
+knnmean=rep(0,10)
+for(i in c(1:10)){
+  knn.pred=knn(knn.train,knn.test,qual.train$Direction,k=i)
+  knnmean[i]=mean(knn.pred==qual.test$Direction)
+}
+knnmean
+```
+
+The best model with lowest possible k come with $k=7$ and the prediction rate of 88%
+
+###SVM
+
+For the SVM model type, I choose all three main type of SVM: Linear, Radial, and Polynomial to see which hold the best result.
+
+####Linear
+
+```{r}
+tune.lm=tune(svm,Direction~.,
+             data=qual.train,
+             kernel="linear",
+             ranges=list(cost=c(0.01,0.05,0.1,0.5,1,5,10,50,100)))
+tune.lm$best.model
+```
+
+I choose cost of 0.01
+
+####Radial
+
+```{r}
+tune.rad=tune(svm,Direction~.,
+              data=qual.train,kernel="radial",
+              ranges=list(cost=c(0.01,0.05,0.1,0.5,1,5,10,50,100),
+                          gamma=c(0.01,0.05,0.1,0.5,1,5,10)))
+tune.rad$best.model
+```
+
+I choose cost of 0.01 and gamma of 0.01
+
+####Polynomial
+
+```{r}
+tune.poly=tune(svm,Direction~.,
+               data=qual.train,
+               kernel="polynomial",
+               ranges=list(cost=c(0.01,0.05,0.1,0.5,1,5,10,50,100),
+                           degree=c(1,2,3,4,5)))
+tune.poly$best.model
+```
+
+I choose cost of 0.01 and degree of 1
+
+
+####Testing
+
+After choosing the best parameters for each type of model, I put them into testing
+```{r}
+svm.lm=svm(Direction~.,data=qual.train,kernel="linear",cost=0.01)
+svm.poly=svm(Direction~.,data=qual.train,kernel="polynomial",cost=0.01,degree=1)
+svm.rad=svm(Direction~.,data=qual.train,kernel="radial",cost=0.01,gamma=0.01)
+svm.lm.pred=predict(svm.lm,qual.test)
+mean(svm.lm.pred==qual.test$Direction)
+svm.poly.pred=predict(svm.poly,qual.test)
+mean(svm.poly.pred==qual.test$Direction)
+svm.rad.pred=predict(svm.rad,qual.test)
+mean(svm.rad.pred==qual.test$Direction)
+```
+
+The result comes as a surprise as all three models have the same prediction rate of 88%. Thus, I would not have a predilection for any type of model for the SVM.
+
+###Result
+
+Based on the above results, I woud choose the SVM for it holds the highest possible prediction rate, and also for its flexibility as all of its sub-models agree on the result, which might help in predicting future result.
+
+
+#Question 4:
+
+(Based on ISLR Chapter 9 #7) In this problem, you will use support vector approaches in order to
+predict whether a given car gets high or low gas mileage based on the
+Auto
+data set.
+
+```{r}
+library(ISLR)
+attach(Auto)
+```
+
+##(a)
+Create a binary variable that takes on a 1 for cars with gas mileage above the median, and a 0 for cars with gas mileage below the median.
+```{r}
+n=length(mpg)
+var=rep(0,n)
+var[mpg>median(mpg)]=1
+Auto$mpgtype=as.factor(var)
+```
+
+##(b)
+Fit a support vector classifier to the data with various values of cost, in order to predict whether a car gets high or low gas mileage. Report the cross-validation errors associated with different values of this parameter. Comment on your results.
+
+```{r}
+tune.out=tune(svm,mpgtype~.,data=Auto,kernel="linear",ranges=list(cost=c(0.01,0.05,0.1,0.5,1,5,10,50,100)))
+summary(tune.out)
+tune.out$best.model
+```
+
+The SVM version with cost=1 has the lowest cross validation value
+
+##(c)
+Now repeat for (b), this time using SVMs with radial and polynomial basis kernels, with different values of gamma and degree and cost. Comment on your results.
+
+```{r}
+rad.out=tune(svm,mpgtype~.,data=Auto,kernel="radial",ranges=list(cost=c(0.01,0.05,0.1,0.5,1,5,10,50,100),gamma=c(0.01,0.05,0.1,0.5,1,5,10)))
+rad.out$best.model
+poly.out=tune(svm,mpgtype~.,data=Auto,kernel="polynomial",ranges=list(cost=c(0.01,0.05,0.1,0.5,1,5,10,50,100),degree=c(1,2,3,4,5)))
+poly.out$best.model
+```
+
+
+For the radial approach, the model with cost=100 and gamma=0.01 has the lowest error
+For the polynomial SVM, the model with lowest error is no longer the one with the cost of 1 anymore. Instead, model with cost=100 and degree=1 has the lowest error
+
+
+##(d)
+Make some plots to back up your assertions in (b) and (c). Hint: In the lab, we used the plot() function for svm objects only in cases with p=2 When p>2,you can use the plot() function to create plots displaying pairs of variables at a time. Essentially, instead of typing plot(svmfit , dat) where svmfit contains your fitted model and dat is a data frame containing your data, you can type plot(svmfit , dat, x1~x4) in order to plot just the first and fourth variables. However, you must replace x1 and x4 with the correct variable names. To find out more, type ?plot.svm.
+```{r}
+svm.lm=svm(mpgtype~.,data=Auto,kernel="linear",cost=1)
+svm.poly=svm(mpgtype~.,data=Auto,kernel="polynomial",cost=100,degree=1)
+svm.rad=svm(mpgtype~.,data=Auto,kernel="radial",cost=100,gamma=0.01)
+##Plots for Linear SVM
+plot(svm.lm,Auto,mpg~cylinders)
+plot(svm.lm,Auto,mpg~displacement)
+plot(svm.lm,Auto,mpg~horsepower)
+plot(svm.lm,Auto,mpg~weight)
+plot(svm.lm,Auto,mpg~acceleration)
+plot(svm.lm,Auto,mpg~year)
+plot(svm.lm,Auto,mpg~origin)
+##Plots for Plolynomial SVM
+plot(svm.poly,Auto,mpg~cylinders)
+plot(svm.poly,Auto,mpg~displacement)
+plot(svm.poly,Auto,mpg~horsepower)
+plot(svm.poly,Auto,mpg~weight)
+plot(svm.poly,Auto,mpg~acceleration)
+plot(svm.poly,Auto,mpg~year)
+plot(svm.poly,Auto,mpg~origin)
+##Plots for Radial SVM
+plot(svm.rad,Auto,mpg~cylinders)
+plot(svm.rad,Auto,mpg~displacement)
+plot(svm.rad,Auto,mpg~horsepower)
+plot(svm.rad,Auto,mpg~weight)
+plot(svm.rad,Auto,mpg~acceleration)
+plot(svm.rad,Auto,mpg~year)
+plot(svm.rad,Auto,mpg~origin)
+```

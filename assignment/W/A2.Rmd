@@ -1,0 +1,429 @@
+---
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+
+
+# FE590.  Assignment #2.
+
+
+## `r format(Sys.time(), "%Y-%m-%d")`
+
+
+
+
+# Instructions
+In this assignment, you should use R markdown to answer the questions below. Simply type your R code into embedded chunks as shown above.
+When you have completed the assignment, knit the document into a PDF file, and upload both the .pdf and .Rmd files to Canvas.
+```{r}
+CWID = 10433910 #Place here your Campus wide ID number, this will personalize
+#your results, but still maintain the reproduceable nature of using seeds.
+#If you ever need to reset the seed in this assignment, use this as your seed
+#Papers that use -1 as this CWID variable will earn 0's so make sure you change
+#this value before you submit your work.
+personal = CWID %% 10000
+set.seed(personal)#You can reset the seed at any time in your code, but please always set it to this seed.
+```
+# Question 1 
+Use the Auto data set from the textbook's website. When reading the data, use the options as.is = TRUE
+and na.strings="?". Remove the unavailable data using the na.omit() function.
+
+```{r}
+auto=read.csv("http://www-bcf.usc.edu/~gareth/ISL/Auto.csv",as.is = TRUE,na.strings = "?")
+auto=na.omit(auto)
+attach(auto)
+```
+
+
+## 1. List the names of the variables in the data set.
+
+```{r}
+names(auto)
+```
+
+
+## 2. The columns origin and name are unimportant variables. Create a new data frame called cars that contains none of these unimportant variables
+
+```{r}
+cars=auto[,-(8:9)]
+```
+
+## 3. What is the range of each quantitative variable? Answer this question using the range() function with the sapply() function e.g., sapply(cars, range). Print a simple table of the ranges of the variables. The rows should correspond to the variables. The first column should be the lowest value of the corresponding variable, and the second column should be the maximum value of the variable. The columns should be suitably labeled.
+
+```{r}
+sapply(cars,range)
+```
+
+## 4. What is the mean and standard deviation of each variable? Create a simple table of the means and standard deviations.
+
+```{r}
+rbind(sapply(cars,mean),sapply(cars,sd))
+```
+
+## 5. Create a scatterplot matrix that includes the variables mpg, displacement, horsepower, weight, and acceleration using the pairs() function.
+
+```{r}
+pairs(cars[,c(1,3:6)])
+```
+
+## 6.  Using the regsubsets function in the leaps library, regress mpg onto
+
+\begin{itemize}
+
+\item displacement
+\item horsepower
+\item weight
+\item acceleration
+
+\end{itemize}
+
+```{r}
+library(leaps)
+regsubsets(mpg~displacement+horsepower+weight+acceleration,data=cars)
+```
+
+## 7. Print a table showing what variables would be selected using best subset selection for all predictors (displacement, horsepower, weight, acceleration) up to order 2 (i.e. weight and weight^2).
+
+```{r}
+
+b=regsubsets(mpg~poly(displacement,2)
+             +poly(horsepower,2)
+             +poly(weight,2)
+             +poly(acceleration,2),
+             data=cars,
+             nvmax = 8)
+b.sum=summary(b)
+b.sum
+```
+
+
+For the next 3 subquestions, forward subset will be used as a method to rank the importance of the variables on the basis of additional meaningful contributions to the overall regression. Moreover, the use of poly would be removed as the powered variables would only provide unnecessary clustering interpretation.
+```{r}
+q=regsubsets(mpg~displacement
+             +horsepower
+             +weight
+             +acceleration,
+             data=cars,
+             nvmax = 4,method = "forward")
+q.sum=summary(q)
+q.sum
+```
+
+### a. What is the most important variable affecting fuel consumption?
+
+Based on the summary above, it is observed that "weight" would be the most important variable among the four as it provides the highest possible explanation for one single variable. 
+
+### b. What is the second most important variable affecting fuel consumption?
+
+With the use of forward subset selection, with "weight" as the baseline, "horsepower" would be the second most important variable as it provide the most additional explanation for the regression comparing to others. This choice of variable would may change based on different method use.
+
+### c. What is the third most important variable affecting fuel consumption?
+
+Finally, "displacement" would add more to the meaningfulness of the regression than "acceleration" does with the two previous variables as baseline now. Thus, "displacement" would be the third most important variables
+
+
+
+# Question 2 
+
+This exercise involves the Boston housing data set.
+
+## 1. Load in the Boston data set, which is part of the MASS library in R. The data set is contained in the object Boston. Read about the data set using the command ?Boston. How many rows are in this data set? How many columns? What do the rows and columns represent?
+
+```{r}
+library(MASS)
+?Boston
+names(Boston)
+attach(Boston)
+```
+The Boston data frame has 506 rows and 14 columns. 
+
+The rows represent values of different areas in Boston.
+
+The 14 columns'meanings are descripted in the help of the Boston database
+
+## 2. Do any of the suburbs of Boston appear to have particularly high crime rates?
+
+
+The method to determines particularly high observation in this question is the method of defining outlier based on Inter Quartile Range (IQR): $Q_{1}-1.5IQR$ or $Q_{3}+1.5IQR$ with $IQR=Q_{3}-Q_{1}$. We will use the upper outlier for these questions
+
+```{r}
+upcrim=which(crim>(quantile(crim,0.75)+1.5*IQR(crim)))
+length(upcrim)
+```
+
+
+There exists 66 suburbs in which their crime rates are particularly higher than those of the rest of Boston
+
+
+## Tax rates?
+
+```{r}
+uptax=which(tax>(quantile(tax,0.75)+1.5*IQR(tax)))
+length(uptax)
+```
+
+For tax rates, there exist suburbs with higher than average rates in Boston but those rates do not guarantee to be considered as particularly high rates because they do not cross the 1.5 IQR threshold
+
+## Pupil-teacher ratios?
+
+```{r}
+upptr=which(ptratio>(quantile(ptratio,0.75)+1.5*IQR(ptratio)))
+length(upptr)
+```
+
+Same what happens with tax rates, there is no suburbs with particularly high pupil - teacher ratio as all of the ratios stay inside the 1.5 IQR rule.
+
+## Comment on the range of each predictor.
+
+```{r}
+mean=sapply(Boston[,c(1,10,11)],mean)   
+#taking out the mean of crim, tax,ptratio
+range=sapply(Boston[,c(1,10,11)],range)
+range#taking out the range of crim, tax,ptratio
+sd=sapply(Boston[,c(1,10,11)],sd)   
+#taking out the sd of crim, tax,ptratio
+rbind((range[c(1,3,5)]-mean)/sd,(range[c(2,4,6)]-mean)/sd)  
+#calculate z-score for crim, tax,ptratio
+```
+
+As shown, tax has a relatively clustered range with only under $-1.31\sigma$ to $1.8\sigma$ even though its range of absolute values are the highest $711-187=524$. 
+
+The pupil - teacher ratio has the lowest absolute value for its range of value with only $7.4$. When change to z-score, the range of this ratio is also seems to have a limited upside while having a particularly low downside with a value of $-2.7\sigma$. 
+
+Finally, the criminal rate is the most fluctuated parameters in all three with a range of $-0.42\sigma$ to $9.92\sigma$. The range suggest that there is no particularly lower than average crime rate but the exist extreme upsides.
+
+## 3. How many of the suburbs in this data set bound the Charles river?
+
+```{r}
+length(c(which(chas==1)))
+```
+
+## 4. What is the median pupil-teacher ratio among the towns in this data set?
+
+```{r}
+median(ptratio)
+```
+
+
+## 5. In this data set, how many of the suburbs average more than seven rooms per dwelling?
+
+```{r}
+length(c(which(rm>7)))
+```
+
+## More than eight rooms per dwelling?
+
+```{r}
+length(c(which(rm>8)))
+```
+
+
+
+# Question 3 
+
+This question should be answered using the Weekly data set, which is part of the ISLR package. This data contains 1,089 weekly returns for 21 years, from the beginning of 1990 to the end of 2010.
+
+## 1. What does the data represent?
+
+```{r}
+library(ISLR)
+?Weekly
+attach(Weekly)
+```
+
+The data represent weekly percentage returns for the S&P 500 stock index between 1990 and 2010.
+
+## 2. Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?
+
+```{r}
+glm.fit=glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume,family=binomial,data=Weekly)
+summary(glm.fit)
+```
+
+"Lag 2" appears to be the only statistically significant predictor at 5% confidence level
+
+
+
+## 3. Fit a logistic regression model using a training data period from 1990 to 2008, using the predictors from the previous problem that you determined were statistically significant. Test your model on the held out data (that is, the data from 2009 and 2010) and express its accuracy.
+
+
+```{r}
+train=(Year<=2008)
+trainq3=Weekly[train,]
+testq3=Weekly[!train,]
+no=nrow(testq3)
+glm.fit2=glm(Direction~Lag2,family=binomial,data=trainq3)
+glm.fit2t=predict(glm.fit2,testq3)
+glm.pred=rep("Down",no)
+glm.pred[glm.fit2t>.5]="Up"
+logmean=mean(glm.pred==testq3$Direction)
+logmean
+```
+
+## 4. Repeat Part 3 using LDA.
+
+```{r}
+lda.fit=lda(Direction~Lag2,data=trainq3)
+lda.fitt=predict(lda.fit,testq3)
+ldamean=mean(lda.fitt$class==testq3$Direction)
+ldamean
+```
+
+
+## 5. Repeat Part 3 using QDA.
+
+```{r}
+qda.fit=qda(Direction~Lag2,data=trainq3)
+qda.fitt=predict(qda.fit,testq3)
+qdamean=mean(qda.fitt$class==testq3$Direction)
+qdamean
+```
+
+## 6. Repeat Part 3 using KNN with K = 1, 2, 3.
+
+```{r}
+library("class")
+knntrain=Lag2[train]
+knntest=Lag2[!train]
+train.Direction=Direction[train]
+knnmean=rep(0,3)
+for(i in c(1:3)){
+  knn.pred=knn(data.frame(knntrain),data.frame(knntest),train.Direction,k=i)
+  knnmean[i]=mean(knn.pred==testq3$Direction)
+}
+knnmean
+```
+
+
+## 7. Which of these methods in Parts 3, 4, 5, and 6 appears to provide the best results on this data?
+
+```{r}
+which.max(c(logmean,ldamean,qdamean,knnmean))
+```
+
+As seen above, LDA has the highest accuracy of all 4 methods in predicting "Up" and "Down" based on "Lag 2"
+
+# Question 4
+
+## Write a function that works in R to gives you the parameters from a linear regression on a data set between two sets of values (in other words you only have to do the 2-D case and your output will be the coefficients beta_0 and beta_1).  Include in the output the standard error of your variables.  You cannot use the lm command in this function or any of the other built in regression models.  For example your output could be a 2x2 matrix with the parameters in the first column and the standard errors in the second column.  For up to 5 bonus points, format your output so that it displays and operates similar in function to the output of the lm command.(i.e. in a data frame that includes all potentially useful outputs)
+
+
+```{r}
+regr=function (y,x){
+  xave=mean(x)
+  yave=mean(y)
+  tss=0
+  no=length(x)
+  df=no-1-1
+  num=0
+  den=0
+  err=rep(0,no)
+  tval=c(0,0)
+  pval=c(0,0)
+  star=c(0,0)
+  rss=0
+  for(i in c(1:no)){
+    num=num+(x[i]-xave)*(y[i]-yave)
+    den=den+(x[i]-xave)^2
+    tss=tss+(y[i]-yave)^2
+  }
+  beta1=num/den
+  beta0=yave-xave*beta1
+  for(i in c(1:no)){
+    err[i]=y[i]-beta0-beta1*x[i]
+    rss=rss+err[i]^2
+  }
+  varerr=sd(err)^2
+  se0=varerr*(1/no+xave^2/den)
+  se1=varerr/den
+  rse=sqrt(rss/df)
+  rsq=1-rss/tss
+  adjrsq=1-(1-rsq)*(no-1)/df
+  fstat=(tss-rss)/(rss/df)
+  fpval=pf(fstat,df1=1,df2=df,lower.tail = F)
+  Estimate=c(beta0,beta1)
+  Std.Error=c(sqrt(se0),sqrt(se1))
+  for(i in c(1,2)){
+    tval[i]=Estimate[i]/Std.Error[i]
+    pval[i]=2*pt(abs(tval[i]),df=df,lower=F)
+    if(pval[i]<=0.001){
+      star[i]="***"
+    } else if (0.001<pval[i]&&pval[i]<=0.01){
+      star[i]="**"
+    } else if (0.01<pval[i]&&pval[i]<=0.05){
+      star[i]="*"
+    } else if (0.05<pval[i]&&pval[i]<=0.1){
+      star[i]="."
+    } else {
+      star[i]=" "
+    }
+  }
+  Min=min(err)
+  FirstQ=quantile(err,0,25)
+  Median=median(err)
+  ThirdQ=quantile(err,0.75)
+  Max=max(err)
+  res=data.frame(Min,FirstQ,Median,ThirdQ,Max)
+  total=data.frame(Estimate,Std.Error,tval,pval,star)
+  rownames(total,c("(Intercept)","Dependent Variables"))
+  print(res)
+  print(total)
+  cat(sprintf("Residual standard error: %.3f",rse))
+  cat(sprintf(" on %.2f degrees of freedom\n",df))
+  cat(sprintf("Multiple R-squared:  %.4f",rsq))
+  cat(sprintf(", Adjusted R-squared:  %.4f \n",adjrsq))
+  cat(sprintf("F-statistic: %.2f",fstat))
+  cat(sprintf(" on 1 and %f DF",df))
+  cat(sprintf(" p-value: %.4f",fpval))
+}
+```
+
+## Compare the output of your function to that of the lm command in R.
+
+```{r}
+lm1=lm(mpg~weight)
+summary(lm1)
+regr(mpg,weight)
+```
+# Question 5
+## Using the Advertising data set (Sales, TV, Radio, Newspaper), do the following:
+
+```{r}
+ads=read.csv("http://www-bcf.usc.edu/~gareth/ISL/Advertising.csv")
+attach(ads)
+library(boot)
+```
+
+## 1. Randomly split the data into two different pieces of roughly equal size.
+```{r}
+n=nrow(ads)
+sampleno=sample(n,n/2)
+train=ads[sampleno,]
+test=ads[-sampleno,]
+```
+## 2. Pick one set to run a linear regression to predict sales based on all TV and Radio, and then test your accuracy using the other set
+```{r}
+lm1=lm(sales~TV+radio,data = train)
+mean((sales-predict(lm1,train))^2)
+mean((sales-predict(lm1,test))^2)
+```
+## 3. Repeat the previous problem using all three predictors (including newspaper).  What do you determine from this result?
+```{r}
+lm2=lm(sales~TV+radio+newspaper,data = train)
+mean((sales-predict(lm2,train))^2)
+mean((sales-predict(lm2,test))^2)
+```
+
+From (2) and (3), it can be seen that the training MSE of (2) is little bit higher the training MSE of (3) while the testing MSE of (2) is only 0.14 lower than that of (3). Thus, the MSE does not improve with significance as we add newspaper into the regression.
+
+## 4. Determine the LOOCV error for the linear regression using all three predictors.
+```{r}
+glm.reg=glm(sales~TV+radio+newspaper,data=ads)
+cv.err=cv.glm(ads,glm.reg)
+cv.err$delta
+
+```

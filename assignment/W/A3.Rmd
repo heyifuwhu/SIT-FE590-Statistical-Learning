@@ -1,0 +1,321 @@
+---
+output: pdf_document
+---
+
+# FE590.  Assignment #3.
+
+
+## Tuan Phan
+## `r format(Sys.time(), "%Y-%m-%d")`
+
+
+# Instructions
+
+In this assignment, you should use R markdown to answer the questions below.  Simply type your R code into embedded chunks as shown above.
+
+When you have completed the assignment, knit the document into a PDF file, and upload _both_ the .pdf and .Rmd files to Canvas.
+
+Note that you must have LaTeX installed in order to knit the equations below.  If you do not have it installed, simply delete the questions below.
+
+# Question 1 (based on JWHT Chapter 5, Problem 8)
+
+In this problem, you will perform cross-validation on a simulated data set.
+
+You will use this personalized simulated data set for this problem:
+```{r}
+CWID = 10433910 #Place here your Campus wide ID number, this will personalize
+#your results, but still maintain the reproduceable nature of using seeds.
+#If you ever need to reset the seed in this assignment, use this as your seed
+#Papers that use -1 as this CWID variable will earn 0's so make sure you change
+#this value before you submit your work.
+personal = CWID %% 10000
+set.seed(personal)
+y <- rnorm(100)
+x <- rnorm(100)
+y <- x - 2*x^2 + rnorm(100)
+```
+
+   (a) In this data set, what is _n_ and what is _p_?
+   
+   In this case, $n=100$ and $p=2$
+   
+   (b) Create a scatterplot of _x_ against _y_. Comment on what you find.
+  
+```{r}
+plot(x,y)
+```
+
+The scatterplot resembles the shape of a parabola.
+
+```{r}
+library(boot)
+Data = data.frame(x, y)
+```
+
+   (c) Compute the LOOCV errors that result from fitting the following four models using least squares:
+      1.  $Y = \beta_0 + \beta_1 X + \epsilon$
+      2.  $Y = \beta_0 + \beta_1 X + \beta_2 X^2 + \epsilon$
+      3.  $Y = \beta_0 + \beta_1 X + \beta_2 X^2 + \beta_3 X^3 + \epsilon$ 
+      4.  $Y = \beta_0 + \beta_1 X + \beta_2 X^2 + \beta_3 X^3 + \beta_4 X^4 + \epsilon$
+      
+```{r}
+cv1=glm(y~x)
+cv.glm(Data,cv1)$delta
+cv2=glm(y~poly(x,2))
+cv.glm(Data,cv2)$delta
+cv3=glm(y~poly(x,3))
+cv.glm(Data,cv3)$delta
+cv4=glm(y~poly(x,4))
+cv.glm(Data,cv4)$delta
+```
+
+   (d) Which of the models in (c) had the smallest LOOCV error? Is this what you expected? Explain your answer.
+   
+Model number 2 has the lowest LOOCV error. This is expected because the model is built upon the quadratic equation of x so the 2nd model should have the lowest error.
+
+   (e) Comment on the statistical significance of the coefficient estimates that results from fitting each of the models in (c) using least squares. Do these results agree with the conclusions drawnbased on the cross-validation results?
+   
+```{r}
+lsq=glm(y~poly(x,4))
+summary(lsq)
+```
+
+The result from the least square models agrees with the result from the LOOCV in c) as the p value for 3rd and 4th is very large, meaning they are very likely to be zero.
+
+# Question 2 (based on JWTH Chapter 7, Problem 10)
+
+The question refers to the 'College' data set
+```{r}
+library(ISLR)
+library(leaps)
+library(gam)
+attach(College)
+```
+
+(a) Split the data into a training set and a test set.  Using out-of-state tuition as the response and the other variables as the predictors, perform subset selection (your choice on how) in order to identify a satisfactory model that uses just a subset of the predictors (if your approach suggests using all of the predictors, then follow your results and use them all).
+
+```{r}
+n=length(Outstate)
+sampling=sample(n,n/2)
+train=College[sampling,]
+test=College[-sampling,]
+reg.fit=regsubsets(Outstate~.,data=train,nvmax=17)
+result=data.frame(rank(summary(reg.fit)$cp),
+                  rank(summary(reg.fit)$bic),
+                  rank(-summary(reg.fit)$adjr))
+colnames(result)=c("Mallow's Cp", "BIC","Adj R^2")
+result
+```
+
+Based on the overall ranking of the 17 parameters over 3 criteria, the model with 11, 12, and 13 parameters share the best position. For that, I would choose the 12 parameters model over the other two for compromisation. The 12 chosen parameters are:
+```{r}
+coefmodel=coef(reg.fit,id=12)
+names(coefmodel)
+```
+
+(b) Fit a GAM on the training data, using out-of-state tuition as the response and the features selected in the previous step as the predictors, using splines of each feature with 5 df.
+```{r}
+gam.fit=gam(Outstate~s(Apps,5)
+                    +s(Accept,5)
+                    +s(Top10perc,5)
+                    +s(F.Undergrad,5)
+                    +s(Room.Board,5)
+                    +s(Personal,5)
+                    +s(Terminal,5)
+                    +s(S.F.Ratio,5)
+                    +s(perc.alumni,5)
+                    +s(Expend,5)
+                    +s(Grad.Rate,5)
+                    +Private,data=train)
+```
+
+(c) Evaluate the model obtained on the test set, and explain the results obtained
+
+```{r}
+mean((train$Outstate-predict(gam.fit,train))^2)
+mean((test$Outstate-predict(gam.fit,test))^2)
+```
+
+The result obtained show that the model does not perform well with a new data set, meaning the model used maybe only suitable for the training set only.
+
+(d) For which variables, if any, is there evidence of a non-linear relationship with the response?  Which are probably linear?  Justify your answers.
+
+```{r}
+summary(gam.fit)
+```
+
+Based on the ANOVA non-parametric test, we can see clearly that there should exist a non-linear relationship between the group of Accept, F.Undergrad, and Expend and the response. In addition, Apps, Top10perc, S.F.Ratio, and  Grad.Rate also seem to have good possibility of having a non-linear relationship. It is very likely that the rest parameters should have a linear relationship with the response.
+
+# Question 3 (based on JWHT Chapter 7, Problem 6)
+
+In this exercise, you will further analyze the `Wage` data set.
+
+```{r}
+attach(Wage)
+```
+
+(a) Perform polynomial regression to predict `wage` using `age.` Use cross-validation to select the optimal degree d for the polynomial. What degree was chosen? Make a plot of the resulting polynomial fit to the data.
+
+```{r}
+#Using k=5 Cross-Validation
+result=rep(NA,20)
+for (i in c(1:20)){
+  poly.fit=glm(wage~poly(age,i),data=Wage)
+  result[i]=cv.glm(Wage,poly.fit,K=5)$delta[2]
+}
+which.min(result)
+plot(c(1:20),result,xlab="Polynomial Degree",ylab="Error")
+lines(c(1:20),result)
+```
+
+(b) Fit a step function to predict `wage` using `age`, and perform cross-validation to choose the optimal number of cuts. Make a plot of the fit obtained.
+
+```{r}
+cuts = rep(NA, 10)
+for (i in 2:10) {
+  Wage$age.cut = cut(Wage$age, i)
+  lm.fit = glm(wage~age.cut, data=Wage)
+  cuts[i] = cv.glm(Wage, lm.fit, K=10)$delta[2]
+}
+cuts=cuts[-1]
+plot(2:10, cuts, xlab="Number of cuts", ylab="CV error")
+lines(2:10, cuts)
+which.min(cuts)+1 #Add 1 to adjust for the start from 2, not from 1
+```
+
+# Question 4 (based on JWHT Chapter 8, Problem 8)
+
+In the lab, a classification tree was applied to the `Carseats` data set after converting Sales into a qualitative response variable. Now we will seek to predict Sales using regression trees and related approaches, treating the response as a quantitative variable.
+```{r}
+library(tree)
+library(randomForest)
+attach(Carseats)
+```
+
+(a) Split the data set into a training set and a test set.
+```{r}
+n=length(Sales)
+sampling.tree=sample(n,n/2)
+train.tree=Carseats[sampling.tree,]
+test.tree=Carseats[-sampling.tree,]
+```
+
+(b) Fit a regression tree to the training set. Plot the tree, and interpret the results. What test MSE do you obtain?
+```{r}
+car.tree=tree(Sales~.,data=train.tree)
+summary(car.tree)
+plot(car.tree)
+text(car.tree,pretty=0)
+pred.tree=predict(car.tree,test.tree)
+mean((test.tree$Sales-pred.tree)^2)
+```
+
+The tree method breaks the data by the Shelve Location first with Bad and Medium into one group and the remaining ones (good) in to the other group. After the dividing the training set based on ShelveLoc, the method continues to divide the data set based on different stats with the total 18 terminal nodes.
+
+(c) Use cross-validation in order to determine the optimal level of tree complexity. Does pruning the tree improve the test MSE?
+```{r}
+car.tree.cv=cv.tree(car.tree,FUN = prune.tree)
+par(mfrow = c(1, 2))
+plot(car.tree.cv$size, car.tree.cv$dev, type = "b",xlab="Size",ylab="Deviance")
+plot(car.tree.cv$k, car.tree.cv$dev, type = "b",xlab="K",ylab="Deviance")
+optimal=car.tree.cv$size[which.min(car.tree.cv$dev)]
+pruned.car.tree = prune.tree(car.tree, best = optimal)
+pred.pruned=predict(pruned.car.tree,test.tree)
+mean((test.tree$Sales-pred.pruned)^2)
+```
+
+The MSE does not improve as the optimal number of nodes is still the maximum
+
+(d) Use the bagging approach in order to analyze this data. What test MSE do you obtain? Use the `importance()` function to determine which variables are most important.
+
+```{r}
+bag.car=randomForest(Sales~.,data=train.tree,mtry=10,ntree=1000,importance=T)
+bag.pred=predict(bag.car,test.tree)
+mean((test.tree$Sales-bag.pred)^2)
+importance(bag.car)
+```
+
+Price and ShelveLoc are the most important variables.
+
+# Question 5 (based on JWTH Chapter 8, Problem 10)
+
+Use boosting (and bagging) to predict Salary in the Hitters data set
+```{r}
+library(gbm)
+attach(Hitters)
+```
+
+(a) Remove the observations for which salary is unknown, and then log-transform the salaries
+
+```{r}
+Hitters = Hitters[-which(is.na(Hitters$Salary)), ]
+Hitters$Salary=log(Hitters$Salary)
+```
+(b) Split the data into training and testing sets for cross validation purposes.
+```{r}
+hitters.sampling=sample(length(Hitters$Salary),length(Hitters$Salary)/2)
+hitters.train=Hitters[hitters.sampling,]
+hitters.test=Hitters[-hitters.sampling,]
+```
+(c) Perform boosting on the training set with 1000 trees for a range of values of the shrinkage parameter $\lambda$.  Produce a plot with different shrinkage parameters on the x-axis and the corresponding training set MSE on the y-axis
+```{r}
+lambdas = seq(0.001, 0.1, by = 0.001)
+len=length(lambdas)
+train.err=rep(NA,len)
+test.err=rep(NA,len)
+for(i in c(1:len)){
+  boost=gbm(Salary~.,data=hitters.train,
+            distribution = "gaussian",
+            n.trees = 1000, 
+            shrinkage = lambdas[i])
+  train.pred=predict(boost, hitters.train, n.trees=1000)
+  test.pred=predict(boost, hitters.test, n.trees=1000)
+  train.err[i]=mean((hitters.train$Salary-train.pred)^2)
+  test.err[i]=mean((hitters.test$Salary-test.pred)^2)
+}
+plot(lambdas,train.err,ylab="Training Error",xlab="Lambda Shrinkage")
+```
+(d) Produce a plot similar to the last one, but this time using the test set MSE
+```{r}
+plot(lambdas,test.err,ylab="Testing Error",xlab="Lambda Shrinkage")
+```
+(e) Fit the model using two other regression techniques (from previous classes) and compare the MSE of those techniques to the results of these boosted trees.
+```{r}
+#first technique is the linear regression
+hit.lm=lm(Salary~.,data=hitters.train)
+hit.pred.lm=predict(hit.lm,hitters.test)
+mean((hitters.test$Salary-hit.pred.lm)^2)
+#the second one is GAM
+hit.gam=gam(Salary~s(AtBat,5)
+                    +s(Hits,5)
+                    +s(HmRun,5)
+                    +s(RBI,5)
+                    +s(Walks,5)
+                    +s(Years,5)
+                    +s(CAtBat,5)
+                    +s(CHits,5)
+                    +s(CHmRun,5)
+                    +s(CRuns,5)
+                    +s(CRBI,5)
+                    +s(CWalks,5)
+                    +s(PutOuts,5)
+                    +s(Assists,5)
+                    +s(Errors,5)
+                    +League
+                    +Division
+                    +NewLeague,data = hitters.train)
+hit.pred.gam=predict(hit.gam,hitters.test)
+mean((hitters.test$Salary-hit.pred.gam)^2)
+```
+
+The testing errors of the Linear Regression technique is worse than most of the lambda values from the boosted trees, only better than $\lambda=0.001$, while the GAM outperforms most of the boosted trees.
+
+(f) Reproduce (c) and (d), but this time use bagging instead of boosting and compare to the boosted MSE's and the MSE's from (e)
+
+```{r}
+hit.bag=randomForest(Salary ~ ., data = hitters.train, ntree = 1000, mtry = 19)
+hit.bag.pred=predict(hit.bag,hitters.test)
+mean((hitters.test$Salary-hit.bag.pred)^2)
+```
+
+The MSE for bagged trees is much better than Linear Regression and GAM models

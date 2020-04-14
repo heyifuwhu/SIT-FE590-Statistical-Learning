@@ -1,0 +1,31 @@
+---
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+
+
+# FE590.  
+
+
+## `r format(Sys.time(), "%Y-%m-%d")`
+
+
+# Topic
+
+## Suptopic
+Lots of stuff about this subtopic is awesome
+
+
+## \textcolor{red}{I like to write in red} 
+
+```{r}
+a=5;
+a
+```
+\textcolor{blue}{ BLah Blah Blah, but in blue}
+
+
